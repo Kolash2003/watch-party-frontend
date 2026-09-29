@@ -3,13 +3,18 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { PartyPopper } from "lucide-react";
+import { CircleAlert, PartyPopper } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Field, FieldContent, FieldDescription, FieldLabel, FieldTitle } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
+import { VideoThumb } from "@/components/video-thumb";
 import { api, Video } from "@/lib/api";
 import { fmtTime } from "@/lib/format";
 
@@ -28,14 +33,18 @@ export default function VideoPage() {
     onError: (e) => toast.error(e.message),
   });
 
-  if (error) return <p className="text-destructive">{error.message}</p>;
-  if (!v) return <Skeleton className="h-48 max-w-xl" />;
+  if (error) return <Alert variant="destructive" className="mx-auto max-w-2xl"><CircleAlert /><AlertTitle>Couldn’t load video</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>;
+  if (!v) return <Skeleton className="shimmer mx-auto aspect-video max-w-2xl rounded-2xl" />;
 
   return (
-    <Card className="max-w-xl">
-      <CardHeader>
-        <CardTitle>{v.title}</CardTitle>
-        <CardDescription className="flex items-center gap-2">
+    <Card className="glass enter mx-auto max-w-2xl pt-0 shadow-2xl shadow-primary/10 [--card-spacing:--spacing(6)]">
+      <div className="relative aspect-video overflow-hidden">
+        <VideoThumb video={v} />
+        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+      </div>
+      <CardHeader className="-mt-16 relative">
+        <CardTitle className="text-2xl font-bold tracking-tight">{v.title}</CardTitle>
+        <CardDescription className="flex flex-wrap items-center gap-2">
           <Badge variant={v.status === "FAILED" ? "destructive" : v.status === "READY" ? "default" : "secondary"}>{v.status.toLowerCase()}</Badge>
           {v.durationSec && <span className="font-mono">{fmtTime(v.durationSec)}</span>}
           {v.height && <span>{v.height}p source</span>}
@@ -46,14 +55,21 @@ export default function VideoPage() {
         {(v.status === "QUEUED" || v.status === "PROCESSING") && (
           <Progress value={v.progress} aria-label="Processing progress"><span className="text-sm">{v.status === "QUEUED" ? "Waiting in queue…" : `Processing ${v.progress}%`}</span></Progress>
         )}
-        {v.status === "FAILED" && <p className="text-sm text-destructive">{v.errorMessage ?? "Processing failed"}</p>}
+        {v.status === "FAILED" && <Alert variant="destructive"><CircleAlert /><AlertTitle>Processing failed</AlertTitle><AlertDescription>{v.errorMessage ?? "Try uploading the video again."}</AlertDescription></Alert>}
         {v.status === "READY" && (
           <>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={everyone} onChange={(e) => setEveryone(e.target.checked)} className="size-4 accent-primary" />
-              Let everyone control playback
-            </label>
-            <Button onClick={() => start.mutate()} disabled={start.isPending}><PartyPopper /> Start a room</Button>
+            <FieldLabel htmlFor="everyone">
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldTitle>Shared remote</FieldTitle>
+                  <FieldDescription>Let everyone in the room play, pause and seek.</FieldDescription>
+                </FieldContent>
+                <Switch id="everyone" checked={everyone} onCheckedChange={setEveryone} />
+              </Field>
+            </FieldLabel>
+            <Button size="lg" onClick={() => start.mutate()} disabled={start.isPending} className="bg-brand group h-11 text-base text-white shadow-lg shadow-primary/30 transition hover:shadow-primary/50 hover:brightness-110 active:scale-[0.98]">
+              {start.isPending ? <Spinner /> : <PartyPopper className="transition-transform group-hover:scale-125 group-hover:-rotate-12" />} Start a party
+            </Button>
           </>
         )}
       </CardContent>

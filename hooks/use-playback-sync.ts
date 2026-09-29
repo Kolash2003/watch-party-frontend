@@ -67,10 +67,18 @@ export function usePlaybackSync(videoRef: RefObject<HTMLVideoElement | null>, re
   }, [active, videoRef]);
 
   const pos = () => videoRef.current?.currentTime ?? 0;
+  // Optimistic: apply locally right away so rapid skips stack; the server's playback:update reconciles.
+  const seek = useCallback((position: number) => {
+    const end = videoRef.current?.duration;
+    position = Math.max(0, Number.isFinite(end) ? Math.min(position, end!) : position);
+    useRoomStore.setState((s) => ({ playback: { ...s.playback, position, updatedAt: serverNow() } }));
+    getSocket().emit("playback:seek", { position });
+  }, [videoRef]);
   return {
     drift: playback.playing ? drift : 0,
     play: useCallback(() => getSocket().emit("playback:play", { position: pos() }), []), // eslint-disable-line react-hooks/exhaustive-deps
     pause: useCallback(() => getSocket().emit("playback:pause", { position: pos() }), []), // eslint-disable-line react-hooks/exhaustive-deps
-    seek: useCallback((position: number) => getSocket().emit("playback:seek", { position: Math.max(0, position) }), []),
+    seek,
+    skip: useCallback((d: number) => seek(expected() + d), [seek]),
   };
 }

@@ -1,23 +1,30 @@
 "use client";
 
-import { Crown, Loader2 } from "lucide-react";
+import { Crown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Item, ItemActions, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 import { useRoomStore } from "@/lib/room-store";
 
 export function PresenceList() {
   const members = useRoomStore((s) => s.members);
   const hostId = useRoomStore((s) => s.hostId);
   return (
-    <ul className="flex flex-col gap-2">
-      {members.map((m) => (
-        <li key={m.id} className="flex items-center gap-2 text-sm">
-          <Avatar className="size-7"><AvatarFallback>{m.name.slice(0, 1).toUpperCase()}</AvatarFallback></Avatar>
-          <span className="truncate">{m.name}</span>
-          {m.id === hostId && <Badge><Crown /> Host</Badge>}
-          {m.buffering && <Loader2 className="ml-auto size-4 animate-spin text-muted-foreground" aria-label="Buffering" />}
-        </li>
+    <ItemGroup className="gap-1">
+      {members.map((m, i) => (
+        <Item key={m.id} role="listitem" size="xs" style={{ "--i": i } as React.CSSProperties} className="enter hover:bg-muted/50">
+          <ItemMedia className="relative">
+            <Avatar className="size-8"><AvatarFallback className="bg-brand font-semibold text-white">{m.name.slice(0, 1).toUpperCase()}</AvatarFallback></Avatar>
+            <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-emerald-400 ring-2 ring-card" />
+          </ItemMedia>
+          <ItemContent><ItemTitle>{m.name}</ItemTitle></ItemContent>
+          <ItemActions>
+            {m.id === hostId && <Badge className="bg-amber-400/15 text-amber-300"><Crown /> Host</Badge>}
+            {m.buffering && <Spinner className="text-muted-foreground" aria-label="Buffering" />}
+          </ItemActions>
+        </Item>
       ))}
-    </ul>
+    </ItemGroup>
   );
 }

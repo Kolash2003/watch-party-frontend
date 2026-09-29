@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
-import { Captions, Check, Loader2, Maximize, Pause, Play, Settings, Volume2, VolumeX } from "lucide-react";
+import { Captions, Check, Maximize, Pause, Play, RotateCcw, RotateCw, Settings, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Slider } from "@/components/ui/slider";
+import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { API } from "@/lib/api";
 import { useRoomStore } from "@/lib/room-store";
 import { usePlaybackSync } from "@/hooks/use-playback-sync";
@@ -29,7 +32,7 @@ export function WatchPlayer({ videoId, hasSubtitles, canControl, hostName }: Pro
   const [buffering, setBuffering] = useState(true);
   const playing = useRoomStore((s) => s.playback.playing);
   const waitingFor = useRoomStore((s) => s.waitingFor);
-  const { drift, play, pause, seek } = usePlaybackSync(videoRef, gestured);
+  const { drift, play, pause, seek, skip: skipBy } = usePlaybackSync(videoRef, gestured);
 
   // Load the manifest: native HLS on Safari, hls.js elsewhere.
   useEffect(() => {
@@ -47,7 +50,7 @@ export function WatchPlayer({ videoId, hasSubtitles, canControl, hostName }: Pro
   }, [videoId]);
 
   const toggle = () => canControl && (playing ? pause() : play());
-  const skip = (d: number) => canControl && seek((videoRef.current?.currentTime ?? 0) + d);
+  const skip = (d: number) => canControl && skipBy(d);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -79,7 +82,7 @@ export function WatchPlayer({ videoId, hasSubtitles, canControl, hostName }: Pro
   };
 
   return (
-    <div ref={boxRef} className="group relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+    <div ref={boxRef} className="group relative aspect-video w-full overflow-hidden rounded-xl bg-black shadow-2xl ring-1 shadow-primary/20 ring-white/10">
       <video
         ref={videoRef}
         className="size-full"
@@ -97,25 +100,29 @@ export function WatchPlayer({ videoId, hasSubtitles, canControl, hostName }: Pro
 
       <FloatingReactions />
 
-      {gestured && buffering && !waitingFor && <Loader2 className="absolute top-1/2 left-1/2 size-10 -translate-x-1/2 -translate-y-1/2 animate-spin text-white/80" aria-label="Buffering" />}
-      {waitingFor && <div role="status" className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-1.5 text-sm text-white">Waiting for {waitingFor} to buffer…</div>}
+      {gestured && buffering && !waitingFor && <Spinner className="absolute top-1/2 left-1/2 size-10 -translate-x-1/2 -translate-y-1/2 text-white/80" aria-label="Buffering" />}
+      {waitingFor && <div role="status" className="absolute top-3 left-1/2 flex -translate-x-1/2 animate-in fade-in slide-in-from-top-2 items-center gap-2 rounded-full bg-black/70 px-4 py-1.5 text-sm text-white backdrop-blur"><Spinner />Waiting for {waitingFor} to buffer…</div>}
       {gestured && (
-        <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white" title={`drift ${drift.toFixed(2)}s`}>
-          <span className={`size-2 rounded-full ${Math.abs(drift) < 0.5 ? "bg-emerald-400" : "bg-amber-400"}`} />
+        <div className="absolute top-3 right-3 flex animate-in fade-in items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white backdrop-blur" title={`drift ${drift.toFixed(2)}s`}>
+          <span className={`size-2 rounded-full transition-colors ${Math.abs(drift) < 0.5 ? "bg-emerald-400 shadow-[0_0_8px] shadow-emerald-400" : "bg-amber-400"}`} />
           {hostName ? `Synced with ${hostName}` : "Synced"}
         </div>
       )}
 
       {!gestured && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/70">
-          <Button size="lg" className="h-11 px-6 text-base" onClick={join}>
-            <Play /> Click to join the party
-          </Button>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm">
+          <button onClick={join} aria-label="Click to join the party" className="group/join relative grid size-20 place-items-center rounded-full">
+            <span className="bg-brand animate-ping-soft absolute inset-0 rounded-full opacity-60" />
+            <span className="bg-brand relative grid size-20 place-items-center rounded-full shadow-2xl shadow-primary/50 transition-transform duration-300 group-hover/join:scale-110">
+              <Play className="ml-1 size-8 fill-white text-white" />
+            </span>
+          </button>
+          <p className="font-medium text-white/90">Click to join the party</p>
         </div>
       )}
 
       {gestured && (
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent p-3 text-white opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-3 pt-10 text-white opacity-100 transition-all duration-300 md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:focus-within:translate-y-0 md:focus-within:opacity-100">
           <Slider
             aria-label="Seek"
             disabled={!canControl || !duration}
@@ -127,12 +134,16 @@ export function WatchPlayer({ videoId, hasSubtitles, canControl, hostName }: Pro
             onValueCommitted={(v) => { seek(Array.isArray(v) ? v[0] : v); setScrub(null); }}
           />
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" aria-label={playing ? "Pause" : "Play"} disabled={!canControl} onClick={toggle} className="hover:bg-white/20">
-              {playing ? <Pause /> : <Play />}
-            </Button>
-            <Button variant="ghost" size="icon" aria-label={muted ? "Unmute" : "Mute"} className="hover:bg-white/20" onClick={() => { const m = !muted; videoRef.current!.muted = m; setMuted(m); }}>
+            <Tip label={playing ? "Pause" : "Play"} keys={["Space"]} render={<Button variant="ghost" size="icon" aria-label={playing ? "Pause" : "Play"} disabled={!canControl} onClick={toggle} className="transition-transform hover:scale-110 hover:bg-white/20 active:scale-90" />}>
+              {playing ? <Pause className="animate-in zoom-in-50" key="pause" /> : <Play className="animate-in zoom-in-50" key="play" />}
+            </Tip>
+            {canControl && <>
+              <Tip label="Back 5s" keys={["←"]} render={<Button variant="ghost" size="icon" aria-label="Back 5 seconds" onClick={() => skip(-5)} className="hover:bg-white/20" />}><RotateCcw /></Tip>
+              <Tip label="Forward 5s" keys={["→"]} render={<Button variant="ghost" size="icon" aria-label="Forward 5 seconds" onClick={() => skip(5)} className="hover:bg-white/20" />}><RotateCw /></Tip>
+            </>}
+            <Tip label={muted ? "Unmute" : "Mute"} keys={["M"]} render={<Button variant="ghost" size="icon" aria-label={muted ? "Unmute" : "Mute"} className="hover:bg-white/20" onClick={() => { const m = !muted; videoRef.current!.muted = m; setMuted(m); }} />}>
               {muted || volume === 0 ? <VolumeX /> : <Volume2 />}
-            </Button>
+            </Tip>
             <div className="w-20 shrink-0"><Slider aria-label="Volume" min={0} max={1} step={0.05} value={[muted ? 0 : volume]}
               onValueChange={(v) => { const n = Array.isArray(v) ? v[0] : v; videoRef.current!.volume = n; videoRef.current!.muted = false; setVolume(n); setMuted(false); }} /></div>
             <span className="font-mono text-xs whitespace-nowrap tabular-nums">{fmtTime(scrub ?? time)} / {fmtTime(duration)}</span>
@@ -151,12 +162,24 @@ export function WatchPlayer({ videoId, hasSubtitles, canControl, hostName }: Pro
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button variant="ghost" size="icon" aria-label="Fullscreen" className="hover:bg-white/20" onClick={() => boxRef.current?.requestFullscreen()}><Maximize /></Button>
+              <Tip label="Fullscreen" keys={["F"]} render={<Button variant="ghost" size="icon" aria-label="Fullscreen" className="hover:bg-white/20" onClick={() => boxRef.current?.requestFullscreen()} />}>
+                <Maximize />
+              </Tip>
             </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+// Tooltips portal to <body>, so they don't show in fullscreen; the aria-label on the button still applies.
+function Tip({ label, keys, render, children }: { label: string; keys: string[]; render: React.ReactElement; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={render}>{children}</TooltipTrigger>
+      <TooltipContent>{label} <KbdGroup>{keys.map((k) => <Kbd key={k}>{k}</Kbd>)}</KbdGroup></TooltipContent>
+    </Tooltip>
   );
 }
 

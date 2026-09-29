@@ -7,11 +7,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/lib/api";
 
 const schema = z.object({
@@ -38,43 +40,50 @@ function Form({ mode }: { mode: "login" | "signup" }) {
       router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
     } catch (e) {
       const msg = (e as Error).message;
-      toast.error(msg);
       setError("root", { message: msg });
     }
   };
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="glass enter w-full max-w-sm shadow-2xl shadow-primary/10 [--card-spacing:--spacing(6)]">
       <CardHeader>
-        <CardTitle>{signup ? "Create your account" : "Welcome back"}</CardTitle>
+        <CardTitle className="text-2xl font-bold tracking-tight">{signup ? "Create your account" : "Welcome back"}</CardTitle>
         <CardDescription>{signup ? "Start hosting watch parties." : "Sign in to your WatchParty."}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-          {signup && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" autoComplete="name" aria-invalid={!!errors.name} {...register("name")} />
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-            </div>
-          )}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" autoComplete="email" aria-invalid={!!errors.email} {...register("email")} />
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" autoComplete={signup ? "new-password" : "current-password"} aria-invalid={!!errors.password} {...register("password")} />
-            {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
-          </div>
-          <Button type="submit" disabled={isSubmitting}>{signup ? "Sign up" : "Sign in"}</Button>
-          <p className="text-center text-sm text-muted-foreground">
-            {signup ? "Already have an account?" : "New here?"}{" "}
-            <Link className="text-primary underline-offset-4 hover:underline" href={{ pathname: signup ? "/login" : "/signup", query: next ? { next } : {} }}>
-              {signup ? "Sign in" : "Create an account"}
-            </Link>
-          </p>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <FieldGroup>
+            {errors.root && (
+              <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-1"><CircleAlert /><AlertDescription>{errors.root.message}</AlertDescription></Alert>
+            )}
+            {signup && (
+              <Field data-invalid={!!errors.name}>
+                <FieldLabel htmlFor="name">Name</FieldLabel>
+                <Input id="name" autoComplete="name" placeholder="Alex" aria-invalid={!!errors.name} {...register("name")} />
+                <FieldError className="animate-in fade-in slide-in-from-top-1 text-xs" errors={[errors.name]} />
+              </Field>
+            )}
+            <Field data-invalid={!!errors.email}>
+              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <Input id="email" type="email" autoComplete="email" placeholder="you@example.com" aria-invalid={!!errors.email} {...register("email")} />
+              <FieldError className="animate-in fade-in slide-in-from-top-1 text-xs" errors={[errors.email]} />
+            </Field>
+            <Field data-invalid={!!errors.password}>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <Input id="password" type="password" autoComplete={signup ? "new-password" : "current-password"} aria-invalid={!!errors.password} {...register("password")} />
+              {signup && !errors.password && <FieldDescription className="text-xs">At least 8 characters.</FieldDescription>}
+              <FieldError className="animate-in fade-in slide-in-from-top-1 text-xs" errors={[errors.password]} />
+            </Field>
+            <Button type="submit" size="lg" disabled={isSubmitting} className="bg-brand h-10 text-white shadow-lg shadow-primary/30 transition hover:shadow-primary/50 hover:brightness-110 active:scale-[0.98]">
+              {isSubmitting && <Spinner />}{signup ? "Create account" : "Sign in"}
+            </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              {signup ? "Already have an account?" : "New here?"}{" "}
+              <Link className="text-primary underline-offset-4 hover:underline" href={{ pathname: signup ? "/login" : "/signup", query: next ? { next } : {} }}>
+                {signup ? "Sign in" : "Create an account"}
+              </Link>
+            </p>
+          </FieldGroup>
         </form>
       </CardContent>
     </Card>
